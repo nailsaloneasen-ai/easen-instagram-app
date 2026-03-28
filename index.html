@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Easen Post">
+<meta name="theme-color" content="#1a0a0f">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Easen Post</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sacramento&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Jost:wght@200;300;400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f0810;
+  --bg2: #1a0f1e;
+  --bg3: #231428;
+  --surface: #2a1832;
+  --border: rgba(212,168,195,0.15);
+  --border-strong: rgba(212,168,195,0.35);
+  --gold: #C9A84C;
+  --pink: #F4A7C3;
+  --text: #f0e8ec;
+  --text-muted: rgba(240,232,236,0.55);
+  --text-subtle: rgba(240,232,236,0.3);
+  --gradient: linear-gradient(135deg, var(--gold), var(--pink));
+  --gradient-text: linear-gradient(90deg, var(--gold), var(--pink));
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Jost', sans-serif;
+  font-weight: 300;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Noise texture overlay ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Header ── */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(15,8,16,0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.app-logo {
+  font-family: 'Sacramento', cursive;
+  font-size: 28px;
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+.btn-icon:hover { border-color: var(--pink); color: var(--pink); }
+
+/* ── Main Content ── */
+main { padding: 0 0 100px; position: relative; z-index: 1; }
+
+/* ── Screen switching ── */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ── Upload Screen ── */
+.upload-hero {
+  padding: 32px 20px 24px;
+  text-align: center;
+}
+
+.upload-hero h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 300;
+  font-size: 32px;
+  letter-spacing: 0.02em;
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+
+.upload-hero h1 span {
+  font-style: italic;
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.upload-hero p {
+  color: var(--text-muted);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+}
+
+/* ── Drop zone ── */
+.drop-zone {
+  margin: 0 20px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius);
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: var(--bg2);
+  position: relative;
+  overflow: hidden;
+}
+
+.drop-zone::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(212,168,195,0.05) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.drop-zone:hover::before,
+.drop-zone.drag-over::before { opacity: 1; }
+.drop-zone.drag-over { border-color: var(--pink); }
+
+.drop-icon {
+  font-size: 40px;
+  margin-bottom: 16px;
+  display: block;
+  filter: grayscale(0.3);
+}
+
+.drop-zone h3 {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 300;
+  font-size: 18px;
+  margin-bottom: 6px;
+  letter-spacing: 0.03em;
+}
+
+.drop-zone p {
+  color: var(--text-muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ── Config Panel ── */
+.config-panel {
+  margin: 20px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.config-row:last-child { border-bottom: none; padding-bottom: 0; }
+.config-row:first-child { padding-top: 0; }
+
+.config-label {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.config-value {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 17px;
+  color: var(--text);
+}
+
+.freq-selector {
+  display: flex;
+  gap: 6px;
+}
+
+.freq-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: 'Jost', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.freq-btn.active {
+  border-color: var(--pink);
+  background: rgba(244,167,195,0.12);
+  color: var(--pink);
+}
+
+/* ── Upload button ── */
+.btn-primary {
+  display: block;
+  width: calc(100% - 40px);
+  margin: 20px;
+  padding: 16px;
+  background: var(--gradient);
+  border: none;
+  border-radius: var(--radius);
+  color: #1a0a0f;
+  font-family: 'Jost', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(201,168,76,0.3); }
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ── Photo preview grid ── */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  margin: 20px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.photo-thumb {
+  aspect-ratio: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg3);
+  cursor: pointer;
+}
+
+.photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.photo-thumb:hover img { transform: scale(1.05); }
+
+.photo-thumb .remove-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(15,8,16,0.8);
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Processing screen ── */
+.processing-screen {
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.processing-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  border-radius: 50%;
+  background: var(--bg2);
+  border: 1.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(244,167,195,0.3); }
+  50% { box-shadow: 0 0 0 12px rgba(244,167,195,0); }
+}
+
+.processing-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 300;
+  font-size: 26px;
+  margin-bottom: 12px;
+}
+
+.processing-step {
+  color: var(--text-muted);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  margin-bottom: 32px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 2px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--gradient);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+  width: 0%;
+}
+
+/* ── Review Screen ── */
+.review-header {
+  padding: 24px 20px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.review-header h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 300;
+  font-size: 24px;
+}
+
+.badge {
+  background: rgba(244,167,195,0.15);
+  border: 1px solid rgba(244,167,195,0.3);
+  color: var(--pink);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.post-card {
+  margin: 0 20px 16px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.post-card:hover { border-color: var(--border-strong); }
+
+.post-image-wrap {
+  aspect-ratio: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg3);
+}
+
+.post-image-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.post-logo-overlay {
+  position: absolute;
+  font-family: 'Sacramento', cursive;
+  font-size: 22px;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.post-body { padding: 16px; }
+
+.post-date {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.post-date::before {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  height: 1px;
+  background: var(--border-strong);
+}
+
+.post-caption {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.post-hashtags {
+  font-size: 12px;
+  color: var(--pink);
+  opacity: 0.7;
+  line-height: 1.6;
+}
+
+.post-actions {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+}
+
+.btn-edit {
+  flex: 1;
+  padding: 9px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-family: 'Jost', sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-edit:hover { border-color: var(--border-strong); color: var(--text); }
+
+/* ── Edit Modal ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10,5,12,0.85);
+  backdrop-filter: blur(10px);
+  z-index: 200;
+  display: none;
+  align-items: flex-end;
+}
+.modal-overlay.open { display: flex; }
+
+.modal-sheet {
+  width: 100%;
+  background: var(--bg2);
+  border-radius: 24px 24px 0 0;
+  border-top: 1px solid var(--border);
+  padding: 20px;
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.modal-handle {
+  width: 36px;
+  height: 3px;
+  background: var(--border-strong);
+  border-radius: 3px;
+  margin: 0 auto 20px;
+}
+
+.modal-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 300;
+  font-size: 20px;
+  margin-bottom: 20px;
+}
+
+.field-group {
+  margin-bottom: 16px;
+}
+
+.field-label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.field-input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  color: var(--text);
+  font-family: 'Jost', sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 80px;
+  transition: border-color 0.2s;
+}
+.field-input:focus { outline: none; border-color: var(--pink); }
+
+/* ── Logo position picker ── */
+.logo-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.logo-pos-btn {
+  padding: 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.logo-pos-btn.active {
+  border-color: var(--pink);
+  background: rgba(244,167,195,0.1);
+  color: var(--pink);
+}
+
+/* ── Border picker ── */
+.border-picker {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.border-btn {
+  padding: 8px 14px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.border-btn.active {
+  border-color: var(--gold);
+  background: rgba(201,168,76,0.1);
+  color: var(--gold);
+}
+
+/* ── Bottom CTA ── */
+.cta-area {
+  position: sticky;
+  bottom: 0;
+  padding: 16px 20px;
+  background: linear-gradient(to top, var(--bg) 80%, transparent);
+  z-index: 50;
+}
+
+/* ── Empty state ── */
+.empty-state {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-subtle);
+}
+
+.empty-state p { font-size: 13px; letter-spacing: 0.05em; }
+
+/* ── Stats row ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin: 0 20px 20px;
+  background: var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.stat-box {
+  background: var(--bg2);
+  padding: 16px 12px;
+  text-align: center;
+}
+
+.stat-value {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 26px;
+  font-weight: 300;
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: block;
+}
+
+.stat-label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  margin-top: 4px;
+  display: block;
+}
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 30px;
+  padding: 10px 20px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  z-index: 300;
+  opacity: 0;
+  transition: all 0.3s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── Bottom Nav ── */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(15,8,16,0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  display: flex;
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+  z-index: 100;
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  background: transparent;
+  color: var(--text-subtle);
+  text-decoration: none;
+}
+
+.nav-item.active { color: var(--pink); }
+
+.nav-icon { font-size: 20px; }
+
+.nav-label {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-family: 'Jost', sans-serif;
+}
+
+/* ── FB Login button ── */
+.btn-fb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: calc(100% - 40px);
+  margin: 20px auto;
+  padding: 15px;
+  background: #1877F2;
+  border: none;
+  border-radius: var(--radius);
+  color: white;
+  font-family: 'Jost', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-fb:hover { background: #1565D8; transform: translateY(-1px); }
+
+/* ── Auth screen ── */
+.auth-screen {
+  padding: 60px 20px 40px;
+  text-align: center;
+}
+
+.auth-logo {
+  font-family: 'Sacramento', cursive;
+  font-size: 52px;
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.auth-tagline {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 300;
+  font-style: italic;
+  font-size: 17px;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 48px;
+}
+
+.auth-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.8;
+  letter-spacing: 0.03em;
+  margin-bottom: 32px;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: var(--text-subtle);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── Settings screen ── */
+.settings-section {
+  margin: 20px;
+}
+
+.settings-title {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  margin-bottom: 12px;
+  padding-left: 4px;
+}
+
+.settings-item {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.settings-item:hover { border-color: var(--border-strong); }
+
+.settings-item-label {
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+
+.settings-item-value {
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* ── Toggle switch ── */
+.toggle {
+  width: 44px;
+  height: 24px;
+  background: var(--bg3);
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: all 0.3s;
+}
+.toggle.on { background: rgba(244,167,195,0.3); border-color: var(--pink); }
+.toggle::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-subtle);
+  top: 2px;
+  left: 2px;
+  transition: all 0.3s;
+}
+.toggle.on::after { background: var(--pink); transform: translateX(20px); }
+
+/* ── Special note input ── */
+.special-note-wrap {
+  margin: 0 20px 16px;
+  position: relative;
+}
+
+.special-note-wrap input {
+  width: 100%;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px 12px 42px;
+  color: var(--text);
+  font-family: 'Jost', sans-serif;
+  font-size: 13px;
+  transition: border-color 0.2s;
+}
+.special-note-wrap input:focus { outline: none; border-color: var(--pink); }
+.special-note-wrap input::placeholder { color: var(--text-subtle); }
+
+.special-note-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  pointer-events: none;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ── Auth Screen ── -->
+<div id="screen-auth" class="screen active">
+  <div class="auth-screen">
+    <span class="auth-logo">Easen nail</span>
+    <p class="auth-tagline">Instagram 自動投稿アプリ</p>
+    <p class="auth-desc">
+      Facebookアカウントでログインして<br>
+      投稿の自動化を始めましょう。
+    </p>
+    <button class="btn-fb" onclick="handleFBLogin()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+      Facebookでログイン
+    </button>
+    <div class="divider">または</div>
+    <button class="btn-primary" style="margin-top:0" onclick="skipAuth()">
+      デモモードで試す
+    </button>
+    <p style="font-size:11px;color:var(--text-subtle);margin-top:20px;line-height:1.8;letter-spacing:0.04em;">
+      ログインすることでInstagramへの<br>自動投稿が有効になります
+    </p>
+  </div>
+</div>
+
+<!-- ── Upload Screen ── -->
+<div id="screen-upload" class="screen">
+  <header class="app-header">
+    <span class="app-logo">Easen nail</span>
+    <div class="header-right">
+      <button class="btn-icon" onclick="showToast('通知設定')">🔔</button>
+      <button class="btn-icon" onclick="switchScreen('settings')">⚙️</button>
+    </div>
+  </header>
+  <main>
+    <div class="upload-hero">
+      <h1>写真を<span>アップロード</span></h1>
+      <p>まとめて選択するとスケジュールが自動生成されます</p>
+    </div>
+
+    <div class="special-note-wrap">
+      <span class="special-note-icon">✨</span>
+      <input type="text" id="special-note" placeholder="特別な告知があれば入力（任意）">
+    </div>
+
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <input type="file" id="file-input" accept="image/*" multiple hidden onchange="handleFiles(this.files)">
+      <span class="drop-icon">📷</span>
+      <h3>写真を選択</h3>
+      <p>タップして写真を選ぶ</p>
+    </div>
+
+    <div id="photo-grid-wrap" style="display:none">
+      <div class="photo-grid" id="photo-grid"></div>
+
+      <div class="config-panel">
+        <div class="config-row">
+          <span class="config-label">投稿頻度</span>
+          <div class="freq-selector">
+            <button class="freq-btn" onclick="setFreq(2,this)">週2</button>
+            <button class="freq-btn" onclick="setFreq(3,this)">週3</button>
+            <button class="freq-btn active" onclick="setFreq(5,this)">週5</button>
+          </div>
+        </div>
+        <div class="config-row">
+          <span class="config-label">投稿期間</span>
+          <span class="config-value" id="period-label">— 週間</span>
+        </div>
+        <div class="config-row">
+          <span class="config-label">開始日</span>
+          <span class="config-value" id="start-date-label">—</span>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="btn-generate" onclick="startGeneration()">
+        AIで自動生成する
+      </button>
+    </div>
+  </main>
+</div>
+
+<!-- ── Processing Screen ── -->
+<div id="screen-processing" class="screen">
+  <header class="app-header">
+    <span class="app-logo">Easen nail</span>
+  </header>
+  <main>
+    <div class="processing-screen">
+      <div class="processing-icon">✨</div>
+      <h2 class="processing-title">AIが生成中です</h2>
+      <p class="processing-step" id="processing-step">写真を解析しています...</p>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <p style="font-size:11px;color:var(--text-subtle);letter-spacing:0.06em">しばらくお待ちください</p>
+    </div>
+  </main>
+</div>
+
+<!-- ── Review Screen ── -->
+<div id="screen-review" class="screen">
+  <header class="app-header">
+    <span class="app-logo">Easen nail</span>
+    <div class="header-right">
+      <button class="btn-icon" onclick="switchScreen('upload')">＋</button>
+    </div>
+  </header>
+  <main>
+    <div class="review-header">
+      <h2>投稿を確認</h2>
+      <span class="badge" id="review-count">0件</span>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-box">
+        <span class="stat-value" id="stat-posts">0</span>
+        <span class="stat-label">投稿数</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-value" id="stat-weeks">0</span>
+        <span class="stat-label">週間分</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-value" id="stat-freq">5</span>
+        <span class="stat-label">週の頻度</span>
+      </div>
+    </div>
+
+    <div id="posts-container"></div>
+
+    <div class="cta-area">
+      <button class="btn-primary" onclick="approveAll()">
+        すべて予約する
+      </button>
+    </div>
+  </main>
+</div>
+
+<!-- ── Settings Screen ── -->
+<div id="screen-settings" class="screen">
+  <header class="app-header">
+    <span class="app-logo">Easen nail</span>
+    <button class="btn-icon" onclick="switchScreen('upload')">✕</button>
+  </header>
+  <main style="padding:20px 0 100px">
+    <div class="settings-section">
+      <p class="settings-title">アカウント</p>
+      <div class="settings-item">
+        <span class="settings-item-label">Instagram</span>
+        <span class="settings-item-value">easen.nail</span>
+      </div>
+      <div class="settings-item">
+        <span class="settings-item-label">X (Twitter)</span>
+        <span class="settings-item-value">@EasenNailsalon</span>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <p class="settings-title">投稿設定</p>
+      <div class="settings-item">
+        <span class="settings-item-label">デフォルト投稿頻度</span>
+        <span class="settings-item-value">週5回</span>
+      </div>
+      <div class="settings-item">
+        <span class="settings-item-label">X同時投稿</span>
+        <div class="toggle on" id="toggle-x" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div class="settings-item">
+        <span class="settings-item-label">プッシュ通知</span>
+        <div class="toggle on" id="toggle-notif" onclick="this.classList.toggle('on')"></div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <p class="settings-title">ロゴ設定</p>
+      <div class="settings-item">
+        <span class="settings-item-label">フォント</span>
+        <span class="settings-item-value">Sacramento</span>
+      </div>
+      <div class="settings-item">
+        <span class="settings-item-label">カラー</span>
+        <span class="settings-item-value">ゴールド → ピンク</span>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <p class="settings-title">分析</p>
+      <div class="settings-item" onclick="showToast('分析データを読み込み中')">
+        <span class="settings-item-label">レポートを見る</span>
+        <span class="settings-item-value">→</span>
+      </div>
+    </div>
+
+    <div style="padding:0 20px;margin-top:20px">
+      <button class="btn-primary" onclick="showToast('ログアウトしました')">
+        ログアウト
+      </button>
+    </div>
+  </main>
+</div>
+
+<!-- ── Bottom Nav ── -->
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="nav-item active" id="nav-upload" onclick="switchScreen('upload')">
+    <span class="nav-icon">📷</span>
+    <span class="nav-label">投稿</span>
+  </button>
+  <button class="nav-item" id="nav-review" onclick="switchScreen('review')">
+    <span class="nav-icon">📋</span>
+    <span class="nav-label">確認</span>
+  </button>
+  <button class="nav-item" id="nav-settings" onclick="switchScreen('settings')">
+    <span class="nav-icon">⚙️</span>
+    <span class="nav-label">設定</span>
+  </button>
+</nav>
+
+<!-- ── Edit Modal ── -->
+<div class="modal-overlay" id="edit-modal" onclick="closeModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 class="modal-title">投稿を編集</h3>
+
+    <div class="field-group">
+      <label class="field-label">キャプション</label>
+      <textarea class="field-input" id="edit-caption" rows="4"></textarea>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label">ハッシュタグ</label>
+      <textarea class="field-input" id="edit-hashtags" rows="2"></textarea>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label">ロゴの位置</label>
+      <div class="logo-picker">
+        <button class="logo-pos-btn" onclick="setLogoPos('left-top',this)">左上</button>
+        <button class="logo-pos-btn" onclick="setLogoPos('center-top',this)">中央上</button>
+        <button class="logo-pos-btn active" onclick="setLogoPos('right-top',this)">右上</button>
+        <button class="logo-pos-btn" onclick="setLogoPos('left-bottom',this)">左下</button>
+        <button class="logo-pos-btn" onclick="setLogoPos('center-bottom',this)">中央下</button>
+        <button class="logo-pos-btn" onclick="setLogoPos('right-bottom',this)">右下</button>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label">枠のスタイル</label>
+      <div class="border-picker">
+        <button class="border-btn" onclick="setBorderStyle('none',this)">なし</button>
+        <button class="border-btn active" onclick="setBorderStyle('gold-thin',this)">ゴールド細</button>
+        <button class="border-btn" onclick="setBorderStyle('gold-double',this)">ゴールド二重</button>
+        <button class="border-btn" onclick="setBorderStyle('pink',this)">ピンク</button>
+        <button class="border-btn" onclick="setBorderStyle('white',this)">ホワイト</button>
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="saveEdit()">保存する</button>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──
+const state = {
+  isLoggedIn: false,
+  photos: [],
+  posts: [],
+  freq: 5,
+  editingIndex: null,
+  currentLogoPos: 'right-top',
+  currentBorderStyle: 'gold-thin',
+};
+
+// ── Sample captions for demo ──
+const sampleCaptions = [
+  "キラキラ輝く特別なネイルで、あなたの指先を彩ります。ワンホンネイルが大人気です✨",
+  "大須観音駅から徒歩3分。長さ出しが得意なEasenネイルサロンで、理想のネイルを実現しませんか💅",
+  "今月のおすすめデザイン。繊細なアートで指先を美しく仕上げます。ご予約お待ちしております🎀",
+  "シンプルからゴージャスまで、お客様の理想に合わせてデザインします。まずはご相談ください✨",
+  "トレンドを取り入れた最新デザイン。長さ出し・ジェルネイル・ネイルケアまでお任せください💕",
+];
+
+const sampleHashtags = [
+  "#ネイルサロン名古屋 #ワンホンネイル #大須観音 #ネイルデザイン #ジェルネイル",
+  "#名古屋ネイル #上前津 #長さ出し #ネイルアート #Easenネイル",
+  "#ネイル #nail #nailart #naildesign #ジェルネイルデザイン",
+  "#名古屋ネイルサロン #セルフネイル #ネイリスト募集 #ネイル好き #大人ネイル",
+  "#キラキラネイル #ネイルチップ #ネイルケア #フットネイル #名古屋",
+];
+
+// ── Screen switching ──
+function switchScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const navMap = { upload: 'nav-upload', review: 'nav-review', settings: 'nav-settings' };
+  if (navMap[name]) document.getElementById(navMap[name]).classList.add('active');
+  const noNav = ['auth', 'processing'];
+  document.getElementById('bottom-nav').style.display = noNav.includes(name) ? 'none' : 'flex';
+}
+
+// ── Auth ──
+function handleFBLogin() {
+  showToast('Facebookログインを実装予定です');
+  setTimeout(() => { state.isLoggedIn = true; switchScreen('upload'); }, 1000);
+}
+
+function skipAuth() {
+  state.isLoggedIn = false;
+  switchScreen('upload');
+}
+
+// ── File handling ──
+function handleFiles(files) {
+  const arr = Array.from(files);
+  arr.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      state.photos.push({ src: e.target.result, file });
+      renderPhotoGrid();
+      updatePeriodLabel();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderPhotoGrid() {
+  const grid = document.getElementById('photo-grid');
+  const wrap = document.getElementById('photo-grid-wrap');
+  if (state.photos.length === 0) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  grid.innerHTML = state.photos.map((p, i) => `
+    <div class="photo-thumb">
+      <img src="${p.src}" alt="">
+      <button class="remove-btn" onclick="removePhoto(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function removePhoto(i) {
+  state.photos.splice(i, 1);
+  renderPhotoGrid();
+  updatePeriodLabel();
+}
+
+function setFreq(n, btn) {
+  state.freq = n;
+  document.querySelectorAll('.freq-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updatePeriodLabel();
+}
+
+function updatePeriodLabel() {
+  const weeks = state.photos.length > 0 ? Math.ceil(state.photos.length / state.freq) : 0;
+  document.getElementById('period-label').textContent = weeks > 0 ? `${weeks} 週間` : '— 週間';
+  const now = new Date();
+  document.getElementById('start-date-label').textContent = state.photos.length > 0
+    ? `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()}` : '—';
+}
+
+// ── Drag & Drop ──
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('drag-over');
+  handleFiles(e.dataTransfer.files);
+});
+
+// ── Generation ──
+function startGeneration() {
+  if (state.photos.length === 0) { showToast('写真を選んでください'); return; }
+  switchScreen('processing');
+  const steps = [
+    '写真を解析しています...',
+    'AIがキャプションを生成中...',
+    'ハッシュタグを最適化中...',
+    'デザインを適用中...',
+    'スケジュールを作成中...',
+    '完了！',
+  ];
+  let i = 0;
+  const fill = document.getElementById('progress-fill');
+  const stepEl = document.getElementById('processing-step');
+  const interval = setInterval(() => {
+    if (i < steps.length) {
+      stepEl.textContent = steps[i];
+      fill.style.width = ((i + 1) / steps.length * 100) + '%';
+      i++;
+    } else {
+      clearInterval(interval);
+      generatePosts();
+      switchScreen('review');
+    }
+  }, 700);
+}
+
+function generatePosts() {
+  const note = document.getElementById('special-note').value;
+  state.posts = state.photos.map((photo, i) => {
+    const date = new Date();
+    const daysPerPost = 7 / state.freq;
+    date.setDate(date.getDate() + Math.floor(i * daysPerPost));
+    return {
+      src: photo.src,
+      caption: (note ? `${note}\n\n` : '') + sampleCaptions[i % sampleCaptions.length],
+      hashtags: sampleHashtags[i % sampleHashtags.length],
+      date: `${date.getFullYear()}/${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}`,
+      logoPos: 'right-bottom',
+      borderStyle: 'gold-thin',
+    };
+  });
+  renderReview();
+}
+
+function getLogoStyle(pos) {
+  const styles = {
+    'left-top': 'top:12px;left:12px',
+    'center-top': 'top:12px;left:50%;transform:translateX(-50%)',
+    'right-top': 'top:12px;right:12px',
+    'left-bottom': 'bottom:12px;left:12px',
+    'center-bottom': 'bottom:12px;left:50%;transform:translateX(-50%)',
+    'right-bottom': 'bottom:12px;right:12px',
+  };
+  return styles[pos] || styles['right-bottom'];
+}
+
+function getBorderStyle(style) {
+  const styles = {
+    'none': '',
+    'gold-thin': 'box-shadow:inset 0 0 0 2px rgba(201,168,76,0.7),inset 0 0 0 6px transparent,inset 0 0 0 8px rgba(201,168,76,0.4)',
+    'gold-double': 'box-shadow:inset 0 0 0 2px rgba(201,168,76,0.8),inset 0 0 0 6px transparent,inset 0 0 0 8px rgba(201,168,76,0.5)',
+    'pink': 'box-shadow:inset 0 0 0 2px rgba(244,167,195,0.8),inset 0 0 0 6px transparent,inset 0 0 0 8px rgba(244,167,195,0.3)',
+    'white': 'box-shadow:inset 0 0 0 2px rgba(255,255,255,0.9)',
+  };
+  return styles[style] || '';
+}
+
+function renderReview() {
+  const container = document.getElementById('posts-container');
+  const count = state.posts.length;
+  document.getElementById('review-count').textContent = `${count}件`;
+  document.getElementById('stat-posts').textContent = count;
+  document.getElementById('stat-weeks').textContent = Math.ceil(count / state.freq);
+  document.getElementById('stat-freq').textContent = state.freq;
+
+  container.innerHTML = state.posts.map((post, i) => `
+    <div class="post-card">
+      <div class="post-image-wrap" style="${getBorderStyle(post.borderStyle)}">
+        <img src="${post.src}" alt="">
+        <div class="post-logo-overlay" style="${getLogoStyle(post.logoPos)}">
+          <span style="background:linear-gradient(90deg,#C9A84C,#F4A7C3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Easen  nail</span>
+        </div>
+      </div>
+      <div class="post-body">
+        <p class="post-date">${post.date}</p>
+        <p class="post-caption">${post.caption.replace(/\n/g,'<br>')}</p>
+        <p class="post-hashtags">${post.hashtags}</p>
+      </div>
+      <div class="post-actions">
+        <button class="btn-edit" onclick="openEdit(${i})">編集する</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Edit Modal ──
+function openEdit(i) {
+  state.editingIndex = i;
+  const post = state.posts[i];
+  document.getElementById('edit-caption').value = post.caption;
+  document.getElementById('edit-hashtags').value = post.hashtags;
+  state.currentLogoPos = post.logoPos;
+  state.currentBorderStyle = post.borderStyle;
+  document.querySelectorAll('.logo-pos-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('onclick').includes("'" + post.logoPos + "'"));
+  });
+  document.querySelectorAll('.border-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('onclick').includes("'" + post.borderStyle + "'"));
+  });
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('edit-modal')) {
+    document.getElementById('edit-modal').classList.remove('open');
+  }
+}
+
+function setLogoPos(pos, btn) {
+  state.currentLogoPos = pos;
+  document.querySelectorAll('.logo-pos-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function setBorderStyle(style, btn) {
+  state.currentBorderStyle = style;
+  document.querySelectorAll('.border-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function saveEdit() {
+  const i = state.editingIndex;
+  state.posts[i].caption = document.getElementById('edit-caption').value;
+  state.posts[i].hashtags = document.getElementById('edit-hashtags').value;
+  state.posts[i].logoPos = state.currentLogoPos;
+  state.posts[i].borderStyle = state.currentBorderStyle;
+  document.getElementById('edit-modal').classList.remove('open');
+  renderReview();
+  showToast('保存しました');
+}
+
+// ── Approve ──
+function approveAll() {
+  showToast('予約完了！投稿スケジュールが設定されました 🎉');
+  setTimeout(() => {
+    state.photos = [];
+    state.posts = [];
+    renderPhotoGrid();
+    switchScreen('upload');
+  }, 2000);
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── PWA Service Worker ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
