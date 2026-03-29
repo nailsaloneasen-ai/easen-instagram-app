@@ -311,9 +311,9 @@ const CAPTIONS = [
   'シンプルからゴージャスまで、お客様の理想に合わせてデザインします💕\n大須観音駅から徒歩3分、上前津駅から徒歩10分✨'
 ];
 const TAGS = [
-  '#ネイルサロン名古屋 #ワンホンネイル #大須観音 #ネイルデザイン #ジェルネイル #名古屋ネイル #Easenネイル #ネイルアート',
-  '#名古屋ネイルサロン #上前津 #長さ出し #ネイル #nail #naildesign #ネイリスト #大人ネイル',
-  '#キラキラネイル #ネイルケア #ジェルネイルデザイン #名古屋 #ネイル好き #nailart #ネイルチップ #美爪'
+  '#ネイルサロン名古屋 #ワンホンネイル #大須観音 #ネイルデザイン #ジェルネイル',
+  '#名古屋ネイルサロン #上前津 #長さ出し #ネイル #nail',
+  '#キラキラネイル #ネイルケア #名古屋 #ネイルアート #nailart'
 ];
 
 // ── Init ──
@@ -521,7 +521,7 @@ async function startGeneration() {
         var prompt = 'Easenネイルサロン（名古屋・大須観音駅徒歩3分）のInstagram投稿文を日本語で作成してください。' +
           (note ? '特別告知:' + note + ' ' : '') +
           '親しみやすくおしゃれなトーンで2〜3文。絵文字を適度に使用。最後に「大須観音駅から徒歩3分、上前津駅から徒歩10分」を添える。' +
-          '続いて関連ハッシュタグを8個。\n形式:\nキャプション：[文]\nハッシュタグ：[#タグ]';
+          '続いて関連ハッシュタグをちょうど5個（それ以上でも以下でもなく必ず5個）。\n形式:\nキャプション：[文]\nハッシュタグ：[#タグ1 #タグ2 #タグ3 #タグ4 #タグ5]';
         var res = await puter.ai.chat(prompt);
         var text = typeof res === 'string' ? res : (res && res.message && res.message.content && res.message.content[0] ? res.message.content[0].text : '');
         var cm = text.match(/キャプション[：:]\s*(.+?)(?=\nハッシュタグ|$)/s);
@@ -627,40 +627,89 @@ function saveEdit() {
 async function approveAll() {
   var btn = document.getElementById('btn-approve');
   btn.disabled = true;
+
+  // ── デモモード ──
   if (!state.isLoggedIn || !state.accessToken) {
-    showToast('デモ：実際の投稿にはFBログインが必要です');
-    await new Promise(function(r) { setTimeout(r, 2000); });
+    showToast('画像をアップロード中... 1/' + state.posts.length);
+    // デモ：localStorageにスケジュールを保存
+    try {
+      var demoSchedule = state.posts.map(function(p) {
+        return { date: p.date, caption: p.caption, hashtags: p.hashtags, status: 'scheduled' };
+      });
+      localStorage.setItem('demo_schedule', JSON.stringify(demoSchedule));
+    } catch(e) {}
+    await new Promise(function(r) { setTimeout(r, 1200); });
     showToast('スケジュールを保存しました（デモ）🎉');
-    await new Promise(function(r) { setTimeout(r, 1500); });
+    await new Promise(function(r) { setTimeout(r, 1800); });
     state.photos = []; state.posts = [];
     renderPhotoGrid(); switchScreen('upload');
     btn.disabled = false; return;
   }
-  showToast('Instagram投稿処理中...');
-  var ok = 0;
+
+  // ── 本番モード：3ステップ処理 ──
+  // STEP 1: 画像をimgBBにアップロードして公開URLを取得
+  showToast('画像をアップロード中...');
+  var uploadedPosts = [];
   for (var i = 0; i < state.posts.length; i++) {
     var p = state.posts[i];
-    var cap = p.caption + '\n\n' + p.hashtags;
+    showToast('画像アップロード中 ' + (i+1) + '/' + state.posts.length);
     try {
-      var cr = await fetch('https://graph.facebook.com/v23.0/' + state.igAccountId + '/media', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({image_url: p.src, caption: cap, access_token: state.accessToken})
+      var upRes = await fetch('/api/upload-image', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ image: p.src })
       });
-      var cd = await cr.json();
-      if (cd.id) {
-        await fetch('https://graph.facebook.com/v23.0/' + state.igAccountId + '/media_publish', {
-          method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({creation_id: cd.id, access_token: state.accessToken})
-        });
-        ok++;
+      var upData = await upRes.json();
+      if (!upData.success || !upData.url) {
+        showToast('画像アップロード失敗（' + (i+1) + '枚目）');
+        console.warn('upload failed:', upData);
+        continue;
       }
-    } catch(e) { console.warn(e); }
-    showToast('処理中 ' + (i+1) + '/' + state.posts.length);
-    await new Promise(function(r) { setTimeout(r, 400); });
+      uploadedPosts.push(Object.assign({}, p, { imageUrl: upData.url }));
+    } catch(e) {
+      console.warn('upload error:', e);
+      showToast('通信エラー（' + (i+1) + '枚目）');
+    }
+    await new Promise(function(r) { setTimeout(r, 300); });
   }
+
+  if (uploadedPosts.length === 0) {
+    showToast('アップロードに失敗しました');
+    btn.disabled = false; return;
+  }
+
+  // STEP 2: スケジュールをサーバーに保存（Vercel KV）
+  showToast('スケジュールを保存中...');
+  try {
+    var schedRes = await fetch('/api/schedule', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        posts: uploadedPosts,
+        accessToken: state.accessToken,
+        igAccountId: state.igAccountId
+      })
+    });
+    var schedData = await schedRes.json();
+    if (schedData.fallback) {
+      // KV未設定時はlocalStorageにフォールバック
+      localStorage.setItem('schedule', JSON.stringify(uploadedPosts));
+      showToast('スケジュールを保存しました ✓');
+    } else if (schedData.success) {
+      showToast(uploadedPosts.length + '件のスケジュールを登録しました 🎉');
+    } else {
+      showToast('スケジュール保存に失敗しました');
+    }
+  } catch(e) {
+    // APIが使えない場合はlocalStorageに保存
+    localStorage.setItem('schedule', JSON.stringify(uploadedPosts));
+    showToast('スケジュールを保存しました ✓');
+  }
+
+  await new Promise(function(r) { setTimeout(r, 2000); });
+  state.photos = []; state.posts = [];
+  renderPhotoGrid(); switchScreen('upload');
   btn.disabled = false;
-  showToast(ok > 0 ? ok + '件投稿完了！🎉' : '投稿に失敗しました');
-  setTimeout(function() { state.photos = []; state.posts = []; renderPhotoGrid(); switchScreen('upload'); }, 2500);
 }
 
 async function requestNotifPerm() {
